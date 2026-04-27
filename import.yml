@@ -1,0 +1,113 @@
+---
+repositories:
+    - name: hello-torero
+      description: Get started with torero
+      url: https://github.com/torerodev/hello-torero.git
+      reference: main
+      tags:
+        - demo
+        - torero
+
+services:
+    - name: hello-ansible
+      type: ansible-playbook
+      description: Ansible hello world with two string variables
+      # decorator: hello-ansible-decorator
+      working-directory: hello-ansible
+      playbooks:
+        - hello-ansible.yml
+      repository: hello-torero
+      tags:
+        - demo
+        - ansible
+      # Optional extra-vars for testing:
+      # first_string: First string to print (default: "Hello")
+      # second_string: Second string to print (default: "World")
+      # target_host: Target host (default: "127.0.0.1")
+
+    - name: hello-python
+      type: python-script
+      description: Python hello world with two string variables
+      # decorator: hello-python-decorator
+      filename: hello-python.py
+      working-directory: hello-python
+      repository: hello-torero
+      tags:
+        - demo
+        - python
+      # Optional environment variables for testing:
+      # first_string: First string to print (default: "Hello")
+      # second_string: Second string to print (default: "World")
+
+    - name: hello-opentofu
+      type: opentofu-plan
+      description: OpenTOFU hello world with two string variables
+      # decorator: hello-opentofu-decorator
+      working-directory: hello-opentofu
+      repository: hello-torero
+      tags:
+        - demo
+        - opentofu
+      # Optional variables for testing:
+      # first_string: First string to print (default: "Hello")
+      # second_string: Second string to print (default: "World")
+
+# decorators:
+#     - name: hello-ansible-decorator
+#       description: "Decorator for hello-ansible playbook with two string variables"
+#       schema:
+#         $id: "hello-ansible"
+#         $schema: "https://json-schema.org/draft/2020-12/schema"
+#         type: object
+#         properties:
+#           target_host:
+#             type: string
+#             description: "Target host for Ansible to connect to"
+#             default: "127.0.0.1"
+#           first_string:
+#             type: string
+#             description: "First string to print"
+#             default: "Hello"
+#           second_string:
+#             type: string
+#             description: "Second string to print"
+#             default: "World"
+#         required: []
+#         additionalProperties: false
+
+#     - name: hello-opentofu-decorator
+#       description: "Decorator for hello-opentofu with two string variables"
+#       schema:
+#         $id: "hello-opentofu"
+#         $schema: "https://json-schema.org/draft/2020-12/schema"
+#         type: object
+#         properties:
+#           first_string:
+#             type: string
+#             description: "First string to print"
+#             default: "Hello"
+#           second_string:
+#             type: string
+#             description: "Second string to print"
+#             default: "World"
+#         required: []
+#         additionalProperties: false
+
+#     - name: hello-python-decorator
+#       description: "Decorator for hello-python script with two string variables"
+#       schema:
+#         $id: "hello-python"
+#         $schema: "https://json-schema.org/draft/2020-12/schema"
+#         type: object
+#         properties:
+#           first_string:
+#             type: string
+#             description: "First string to print"
+#             default: "Hello"
+#           second_string:
+#             type: string
+#             description: "Second string to print"
+#             default: "World"
+#         required: []
+#         additionalProperties: false
+...
