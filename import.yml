@@ -1,12 +1,12 @@
 ---
 repositories:
-    - name: hello-torero
-      description: Get started with torero
-      url: https://github.com/torerodev/hello-torero.git
+    - name: academy-services
+      description: Get started with IAG services
+      url: https://github.com/itential/academy-services.git
       reference: main
       tags:
         - demo
-        - torero
+        - academy
 
 services:
     - name: hello-ansible
@@ -16,7 +16,7 @@ services:
       working-directory: hello-ansible
       playbooks:
         - hello-ansible.yml
-      repository: hello-torero
+      repository: academy-services
       tags:
         - demo
         - ansible
@@ -31,7 +31,7 @@ services:
       # decorator: hello-python-decorator
       filename: hello-python.py
       working-directory: hello-python
-      repository: hello-torero
+      repository: academy-services
       tags:
         - demo
         - python
@@ -44,7 +44,7 @@ services:
       description: OpenTOFU hello world with two string variables
       # decorator: hello-opentofu-decorator
       working-directory: hello-opentofu
-      repository: hello-torero
+      repository: academy-services
       tags:
         - demo
         - opentofu

@@ -2,7 +2,7 @@
 import argparse
 
 def main():
-    # Create argument parser to receive command-line arguments from torero
+    # Create argument parser to receive command-line arguments
     parser = argparse.ArgumentParser(description='Python hello world with two string variables')
     parser.add_argument('--first_string', type=str, default='Hello', 
                         help='First string to print')
