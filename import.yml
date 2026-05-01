@@ -9,6 +9,24 @@ repositories:
         - academy
 
 services:
+
+    - name: software-upgrade
+      type: ansible-playbook
+      description: Cisco IOS-XE Cat 8K install-mode upgrade
+      playbooks:
+        - software_upgrade.yml
+      working-directory: ""
+      repository: software-upgrade
+      decorator: software-upgrade
+      runtime:
+        inventory:
+            - dynamic_inventory.py
+        config-file: ansible.cfg
+        req-file: requirements.txt
+        env:
+            ANSIBLE_HOST_KEY_CHECKING: "false"
+            ANSIBLE_STDOUT_CALLBACK: json
+
     - name: hello-ansible
       type: ansible-playbook
       description: Ansible hello world with two string variables
@@ -52,7 +70,21 @@ services:
       # first_string: First string to print (default: "Hello")
       # second_string: Second string to print (default: "World")
 
-# decorators:
+decorators:
+
+    - name: software-upgrade
+      schema:
+        $id: software-upgrade-decorator
+        $schema: https://json-schema.org/draft/2020-12/schema
+        additionalProperties: false
+        properties:
+            binary:
+                description: .bin filename to install, must exist in bootflash:images/ on the target device (e.g., c8000v-universalk9.17.15.03a.SPA.bin)
+                type: string
+        required:
+            - binary
+        type: object
+
 #     - name: hello-ansible-decorator
 #       description: "Decorator for hello-ansible playbook with two string variables"
 #       schema:

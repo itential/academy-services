@@ -1,0 +1,178 @@
+---
+# Software Upgrade Playbook — Cisco IOS-XE install mode
+#
+# Driven by `GatewayManager.runService` from an Itential workflow.
+# Required extra vars: binary
+#   binary  — .bin filename (e.g., c8000v-universalk9.17.15.03a.SPA.bin)
+#
+# Inventory (target hosts) is supplied at runtime by Inventory Manager via
+# GatewayManager — the playbook targets "all" hosts in the provided inventory.
+#
+# Flow:
+#   pre-flight clean (clear any uncommitted install, purge inactive packages)
+#   → stage bin from bootflash:images/
+#   → install add   (assert no FAILED)
+#   → install activate + reload
+#   → wait for device
+#   → install commit (assert no FAILED)
+#   → post version check
+#
+# Prompts handled declaratively via prompt:/answer: to avoid non-interactive hangs.
+#
+# All install-subsystem steps register their stdout and assert the output does
+# NOT contain "FAILED:". The ios_command module returns rc=0 even when the CLI
+# prints a FAILED error, so we must text-match to surface real failures.
+
+- name: IOS-XE install-mode upgrade
+  hosts: all
+  gather_facts: false
+  connection: network_cli
+  vars:
+    ansible_network_os: ios
+
+  tasks:
+    - name: Assert required variables
+      ansible.builtin.assert:
+        that:
+          - binary is defined and binary | length > 0
+        fail_msg: "binary is required"
+
+    # ---------- Pre-Flight: clear any pending-commit / stale state ----------
+
+    - name: Pre-flight — show install summary
+      cisco.ios.ios_command:
+        commands:
+          - "show install summary"
+      register: preflight_summary
+
+    - name: Pre-flight — detect pending-commit state
+      # Match only DATA rows with state column == U (Activated & Uncommitted) or
+      # D (Deactivated & Uncommitted). Don't match the header legend that always
+      # contains the phrase "Activated & Uncommitted" and the letter U.
+      # Data rows look like: "IMG   U    17.15.03a.0.193"
+      ansible.builtin.set_fact:
+        pending_commit: >-
+          {{
+            (preflight_summary.stdout[0] | default('')) | regex_search('(?m)^\s*(?:IMG|APP|UTIL|PART|BOX|LID|FIB|POL|SCR|SIG|SUB|ROMM|RP_B|IOX|WLC)\s+[UD]\b') is not none
+          }}
+
+    - name: Pre-flight — commit any prior uncommitted install so install add is not blocked
+      cisco.ios.ios_command:
+        commands:
+          - "install commit"
+      register: preflight_commit
+      when: pending_commit | bool
+
+    - name: Pre-flight — assert no FAILED on prior-state commit
+      ansible.builtin.assert:
+        that:
+          - "'FAILED:' not in (preflight_commit.stdout[0] | default(''))"
+        fail_msg: "Pre-flight install commit failed. stdout: {{ preflight_commit.stdout | default('(none)') }}"
+      when: pending_commit | bool
+
+    - name: Pre-flight — remove inactive packages to free bootflash
+      cisco.ios.ios_command:
+        commands:
+          - command: "install remove inactive"
+            prompt: "\\[y\\/n\\]"
+            answer: "y"
+      register: preflight_remove_inactive
+      ignore_errors: true
+
+    # ---------- Stage + Install ----------
+
+    - name: Stage bin from bootflash:images/ to bootflash root
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy bootflash:images/{{ binary }} bootflash:{{ binary }}"
+            prompt: "Destination filename"
+            answer: "\r"
+      register: stage_result
+
+    - name: install add
+      cisco.ios.ios_command:
+        commands:
+          - "install add file bootflash:{{ binary }}"
+      register: add_result
+
+    - name: Show install add result
+      ansible.builtin.debug:
+        var: add_result.stdout_lines
+
+    - name: Assert install add did NOT report FAILED
+      ansible.builtin.assert:
+        that:
+          - "'FAILED:' not in (add_result.stdout[0] | default(''))"
+          - "'Cannot perform install operation' not in (add_result.stdout[0] | default(''))"
+        fail_msg: >-
+          install add failed for {{ binary }}.
+          stdout: {{ add_result.stdout | default('(none)') }}
+
+    - name: install activate (triggers reload)
+      cisco.ios.ios_command:
+        commands:
+          - command: "install activate"
+            prompt: "\\[y\\/n\\]"
+            answer: "y"
+      register: activate_result
+      ignore_errors: true
+
+    - name: Assert install activate did NOT report FAILED (pre-reload)
+      ansible.builtin.assert:
+        that:
+          - "'FAILED:' not in (activate_result.stdout[0] | default(''))"
+        fail_msg: >-
+          install activate failed for {{ binary }}.
+          stdout: {{ activate_result.stdout | default('(none)') }}
+      when: activate_result.stdout is defined and activate_result.stdout | length > 0
+
+    - name: Wait for device to come back after reload
+      ansible.builtin.wait_for_connection:
+        delay: 90
+        timeout: 600
+        sleep: 15
+
+    - name: install commit
+      cisco.ios.ios_command:
+        commands:
+          - "install commit"
+      register: commit_result
+
+    - name: Show install commit result
+      ansible.builtin.debug:
+        var: commit_result.stdout_lines
+
+    - name: Assert install commit did NOT report FAILED
+      ansible.builtin.assert:
+        that:
+          - "'FAILED:' not in (commit_result.stdout[0] | default(''))"
+        fail_msg: >-
+          install commit failed for {{ binary }}.
+          stdout: {{ commit_result.stdout | default('(none)') }}
+
+    # ---------- Post ----------
+
+    - name: Post-upgrade version check
+      cisco.ios.ios_command:
+        commands:
+          - "show version | include Version"
+      register: version_result
+
+    - name: Assert running version matches target binary
+      # Version regex requires >=2-digit major (IOS-XE majors are always 17+).
+      # This prevents accidental matching of "9.17.15" from the "universalk9." prefix
+      # in the binary filename.
+      ansible.builtin.assert:
+        that:
+          - "(binary | regex_search('[0-9]{2}\\.[0-9]+\\.[0-9]+[a-z]?')) in (version_result.stdout[0] | default(''))"
+        fail_msg: >-
+          Post-upgrade version check did NOT match target.
+          Expected version derived from binary: {{ binary | regex_search('[0-9]{2}\.[0-9]+\.[0-9]+[a-z]?') }}
+          show version output: {{ version_result.stdout | default('(none)') }}
+
+    - name: Upgrade summary
+      ansible.builtin.debug:
+        msg:
+          - "Device: {{ inventory_hostname }}"
+          - "Target binary: {{ binary }}"
+          - "Version output: {{ version_result.stdout_lines[0] }}"
