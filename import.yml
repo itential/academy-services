@@ -1,7 +1,7 @@
 ---
 repositories:
     - name: academy-services
-      description: Get started with IAG services
+      description: Get started with Itential Gateway services
       url: https://github.com/itential/academy-services.git
       reference: main
       tags:
@@ -15,8 +15,8 @@ services:
       description: Cisco IOS-XE Cat 8K install-mode upgrade
       playbooks:
         - software_upgrade.yml
-      working-directory: ""
-      repository: software-upgrade
+      working-directory: sw-upgrade-playbook
+      repository: academy-services
       decorator: software-upgrade
       runtime:
         inventory:
